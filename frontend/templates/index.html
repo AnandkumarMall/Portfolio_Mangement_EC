@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Adaptive Portfolio Engine{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 offset-lg-2">
+        <!-- Header -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-primary">
+                <i class="bi bi-graph-up-arrow"></i> Adaptive Portfolio Engine
+            </h1>
+            <p class="lead text-muted">
+                Rule-Based Portfolio Allocation & Risk Management System
+            </p>
+            <p class="text-secondary">
+                NIFTY 50 Indian Equities | Walk-Forward Backtesting | AI-Powered Insights
+            </p>
+        </div>
+
+        <!-- Main Form Card -->
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-sliders"></i> Backtest Configuration</h4>
+            </div>
+            <div class="card-body p-4">
+                <form id="backtestForm" method="POST">
+                    <!-- Date Range -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="start_year" class="form-label fw-bold">
+                                <i class="bi bi-calendar-range"></i> Start Year
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="start_year" name="start_year"
+                                min="2010" max="2023" value="2015" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end_year" class="form-label fw-bold">
+                                <i class="bi bi-calendar-check"></i> End Year
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="end_year" name="end_year"
+                                min="2011" max="2024" value="2024" required>
+                        </div>
+                    </div>
+
+                    <!-- Risk Engine Toggle -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="with_risk_engine"
+                                name="with_risk_engine" checked>
+                            <label class="form-check-label fw-bold" for="with_risk_engine">
+                                <i class="bi bi-shield-fill-check text-success"></i>
+                                Enable Risk Management Engine
+                            </label>
+                        </div>
+                        <small class="text-muted ms-4">
+                            Volatility targeting, drawdown protection, position limits, stop-loss
+                        </small>
+                    </div>
+
+                    <!-- Stress Test Selector (Optional) -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-exclamation-triangle"></i> Stress Test (Optional)
+                        </label>
+                        <select class="form-select" id="stress_type" name="stress_type">
+                            <option value="">None - Normal Backtest</option>
+                            <option value="market_shock">Market Shock (-5% daily returns)</option>
+                            <option value="volatility_spike">Volatility Spike (2x volatility)</option>
+                            <option value="correlation_spike">Correlation Spike (All stocks correlated)</option>
+                        </select>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <button type="submit" formaction="{{ url_for('run_backtest') }}"
+                                class="btn btn-primary btn-lg w-100" id="backtestBtn">
+                                <i class="bi bi-play-circle"></i> Run Backtest
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="submit" formaction="{{ url_for('run_stress_test') }}"
+                                class="btn btn-warning btn-lg w-100" id="stressTestBtn">
+                                <i class="bi bi-lightning"></i> Run Stress Test
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="row mt-5">
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 border-primary">
+                    <div class="card-body text-center">
+                        <i class="bi bi-speedometer2 text-primary" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">Regime Detection</h5>
+                        <p class="text-muted small">
+                            Classifies markets into Bull, Volatile, or Crash regimes
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 border-success">
+                    <div class="card-body text-center">
+                        <i class="bi bi-shield-check text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">Risk Management</h5>
+                        <p class="text-muted small">
+                            Multi-layer protection: volatility, drawdown, stop-loss
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 border-info">
+                    <div class="card-body text-center">
+                        <i class="bi bi-robot text-info" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">AI Insights</h5>
+                        <p class="text-muted small">
+                            Gemini-powered explanations and comprehensive reports
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 class="mt-3 text-white">Running Backtest...</h4>
+        <p class="text-white-50">This may take a few moments</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Show loading overlay on form submit
+    document.getElementById('backtestForm').addEventListener('submit', function () {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    });
+</script>
+{% endblock %}

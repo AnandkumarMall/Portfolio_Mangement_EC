@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+
+{% block title %}Results - Adaptive Portfolio Engine{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header with Back Button -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">
+                <i class="bi bi-bar-chart-line"></i> Backtest Results
+                {% if is_stress %}
+                <span class="badge bg-warning">Stress Test: {{ stress_type|replace('_', ' ')|title }}</span>
+                {% endif %}
+            </h2>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> New Backtest
+            </a>
+        </div>
+
+        <!-- Period & Risk Engine Info -->
+        <div class="alert alert-info mb-4">
+            <i class="bi bi-calendar-range"></i> <strong>Period:</strong> {{ start_year }} - {{ end_year }} |
+            <i class="bi bi-shield-check"></i> <strong>Risk Engine:</strong>
+            {% if with_risk_engine %}
+            <span class="badge bg-success">Enabled</span>
+            {% else %}
+            <span class="badge bg-secondary">Disabled</span>
+            {% endif %}
+        </div>
+
+        <!-- Capital Summary -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <i class="bi bi-currency-rupee text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="text-muted mt-2">Initial Capital</h6>
+                        <h4 class="fw-bold">₹1,00,000</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <i class="bi bi-graph-up text-success" style="font-size: 2rem;"></i>
+                        <h6 class="text-muted mt-2">Final Value</h6>
+                        <h4 class="fw-bold">₹{{ "{:,.0f}".format(results.get('total_portfolio_value', 100000)) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <i class="bi bi-trophy text-info" style="font-size: 2rem;"></i>
+                        <h6 class="text-muted mt-2">Total Return</h6>
+                        {% set total_return = ((results.get('total_portfolio_value', 100000) - 100000) / 100000 * 100)
+                        %}
+                        <h4 class="fw-bold">{{ "{:.2f}".format(total_return) }}%</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <i class="bi bi-arrow-down-circle text-danger" style="font-size: 2rem;"></i>
+                        <h6 class="text-muted mt-2">Max Drawdown</h6>
+                        <h4 class="fw-bold">{{ "{:.2f}".format(results.metrics['Max Drawdown'] * 100) }}%</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics Grid -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for metric, value in results.metrics.items() %}
+                    <div class="col-md-3 mb-3">
+                        <div class="metric-item p-3 border rounded">
+                            <h6 class="text-muted mb-1">{{ metric }}</h6>
+                            {% if metric in ['CAGR', 'Volatility', 'Max Drawdown'] %}
+                            <h5 class="fw-bold mb-0">{{ "{:.2f}".format(value * 100) }}%</h5>
+                            {% elif metric in ['Time in Cash (%)','Win Rate (%)'] %}
+                            <h5 class="fw-bold mb-0">{{ "{:.1f}".format(value) }}%</h5>
+                            {% else %}
+                            <h5 class="fw-bold mb-0">{{ "{:.3f}".format(value) }}</h5>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Holdings with Pie Chart -->
+        {% if results.current_holdings %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-briefcase"></i> Current Portfolio Holdings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-center mb-3">Allocation Breakdown</h6>
+                        <div style="background-color: #1e1e1e; padding: 20px; border-radius: 8px;">
+                            <div id="allocationPieChart"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th class="text-end">Weight %</th>
+                                        <th class="text-end">Amount (₹)</th>
+                                        <th class="text-end">Price (₹)</th>
+                                        <th class="text-end">Shares</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for holding in results.current_holdings %}
+                                    <tr>
+                                        <td><strong>{{ holding.ticker }}</strong></td>
+                                        <td class="text-end">{{ "{:.2f}".format(holding.weight * 100) }}%</td>
+                                        <td class="text-end">₹{{ "{:,.0f}".format(holding.amount) }}</td>
+                                        <td class="text-end">₹{{ "{:,.2f}".format(holding.price) }}</td>
+                                        <td class="text-end">{{ "{:.0f}".format(holding.shares) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if results.cash_amount %}
+                                    <tr class="table-info">
+                                        <td><strong>CASH</strong></td>
+                                        <td class="text-end">{{ "{:.2f}".format(results.cash_weight * 100) }}%</td>
+                                        <td class="text-end">₹{{ "{:,.0f}".format(results.cash_amount) }}</td>
+                                        <td class="text-end">-</td>
+                                        <td class="text-end">-</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Charts Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Performance Charts</h5>
+            </div>
+            <div class="card-body">
+                <!-- Tabs for Charts -->
+                <ul class="nav nav-tabs" id="chartTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="equity-tab" data-bs-toggle="tab" data-bs-target="#equity"
+                            type="button">
+                            Equity Curve
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="drawdown-tab" data-bs-toggle="tab" data-bs-target="#drawdown"
+                            type="button">
+                            Drawdown
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exposure-tab" data-bs-toggle="tab" data-bs-target="#exposure"
+                            type="button">
+                            Exposure
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="regime-tab" data-bs-toggle="tab" data-bs-target="#regime"
+                            type="button">
+                            Market Regime
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content mt-3" id="chartTabsContent">
+                    <div class="tab-pane fade show active" id="equity" role="tabpanel">
+                        <div id="equityChart"></div>
+                    </div>
+                    <div class="tab-pane fade" id="drawdown" role="tabpanel">
+                        <div id="drawdownChart"></div>
+                    </div>
+                    <div class="tab-pane fade" id="exposure" role="tabpanel">
+                        <div id="exposureChart"></div>
+                    </div>
+                    <div class="tab-pane fade" id="regime" role="tabpanel">
+                        <div id="regimeChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Events Timeline -->
+        {% if results.risk_logs %}
+        <div class="card mb-4">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Risk Event Timeline (Last 20 events)</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for event in results.risk_logs[-20:]|reverse %}
+                    <div class="timeline-item mb-3 p-3 border-start border-3 border-primary">
+                        <div class="fw-bold text-primary">
+                            <i class="bi bi-calendar3"></i> {{ event.date }}
+                        </div>
+                        <div class="mt-1">
+                            <span class="badge bg-secondary">{{ event.event_type|replace('_', ' ') }}</span>
+                            {{ event.description }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- AI Analysis Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-robot"></i> AI-Powered Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <button class="btn btn-primary btn-lg w-100" id="generateExplanationBtn">
+                            <i class="bi bi-stars"></i> Generate AI Explanation
+                        </button>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <button class="btn btn-success btn-lg w-100" id="generateReportBtn">
+                            <i class="bi bi-file-earmark-text"></i> Generate Full AI Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AI Explanation Display -->
+                <div id="aiExplanationContainer" style="display: none;" class="mt-4">
+                    <h6 class="fw-bold"><i class="bi bi-lightbulb"></i> AI Explanation:</h6>
+                    <div id="aiExplanationText" class="p-3 bg-light rounded"></div>
+                </div>
+
+                <!-- AI Report Display -->
+                <div id="aiReportContainer" style="display: none;" class="mt-4">
+                    <h6 class="fw-bold"><i class="bi bi-file-text"></i> Full AI Report:</h6>
+                    <div id="aiReportText" class="p-3 bg-light rounded" style="max-height: 600px; overflow-y: auto;">
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('download_report', format_type='md') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-download"></i> Download as Markdown
+                        </a>
+                        <a href="{{ url_for('download_report', format_type='txt') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-download"></i> Download as Text
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Loading Indicators -->
+                <div id="aiLoading" style="display: none;" class="text-center mt-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Generating AI analysis...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Prepare chart data
+    const equityData = {{ results.equity_curve| tojson }};
+    const drawdownData = {{ results.drawdown_curve| tojson }};
+    const exposureData = {{ results.exposure_timeline| tojson }};
+    const regimeData = {{ results.regime_timeline| tojson }};
+    const holdingsData = {{ results.current_holdings| tojson }};
+
+    // Create Allocation Pie Chart
+    if (holdingsData && holdingsData.length > 0) {
+        const labels = holdingsData.map(h => h.ticker);
+        const values = holdingsData.map(h => h.weight * 100);
+        const text = holdingsData.map(h => `${h.ticker}: ${(h.weight * 100).toFixed(2)}%`);
+
+        // Add cash if present
+        const cashWeight = {{ results.cash_weight if results.cash_weight else 0 }};
+
+    if (cashWeight > 0) {
+        labels.push('Cash');
+        values.push(cashWeight * 100);
+        text.push(`Cash: ${(cashWeight * 100).toFixed(2)}%`);
+    }
+
+    // Enhanced color palette for better visual distinction
+    const colorPalette = [
+        '#5DADE2', '#48C9B0', '#F4D03F', '#F39C12', '#E74C3C',
+        '#9B59B6', '#3498DB', '#1ABC9C', '#F1C40F', '#E67E22',
+        '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3',
+        '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
+        '#FFC107', '#FF9800', '#FF5722', '#795548', '#607D8B'
+    ];
+
+    Plotly.newPlot('allocationPieChart', [{
+        values: values,
+        labels: labels,
+        text: text,
+        type: 'pie',
+        hole: 0.55,  // Larger donut hole for modern look
+        marker: {
+            colors: colorPalette,
+            line: {
+                color: '#1e1e1e',
+                width: 2
+            }
+        },
+        textinfo: 'none',  // Remove labels from pie slices
+        hovertemplate: '<b>%{label}</b><br>%{value:.2f}%<br><extra></extra>'
+    }], {
+        showlegend: true,
+        height: 450,
+        paper_bgcolor: '#1e1e1e',
+        plot_bgcolor: '#1e1e1e',
+        font: {
+            color: '#ffffff',
+            size: 12
+        },
+        legend: {
+            orientation: 'v',
+            x: 1.05,
+            y: 0.5,
+            font: {
+                color: '#ffffff',
+                size: 11
+            },
+            bgcolor: 'rgba(0,0,0,0)',
+            bordercolor: 'rgba(255,255,255,0.2)',
+            borderwidth: 1
+        },
+        margin: { t: 20, b: 20, l: 20, r: 150 }
+    });
+    }
+
+    // Equity Curve Chart
+    const equityDates = equityData.map(d => d.date);
+    const equityValues = equityData.map(d => parseFloat(d.value));
+
+    Plotly.newPlot('equityChart', [{
+        x: equityDates,
+        y: equityValues,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Portfolio Value',
+        line: { color: '#0d6efd', width: 2 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(13, 110, 253, 0.1)'
+    }], {
+        title: 'Portfolio Equity Curve',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Portfolio Value (₹)' },
+        hovermode: 'x unified'
+    });
+
+    // Drawdown Chart
+    const drawdownDates = drawdownData.map(d => d.date);
+    const drawdownValues = drawdownData.map(d => parseFloat(d.value) * 100);
+
+    Plotly.newPlot('drawdownChart', [{
+        x: drawdownDates,
+        y: drawdownValues,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Drawdown',
+        line: { color: '#dc3545', width: 2 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(220, 53, 69, 0.1)'
+    }], {
+        title: 'Underwater Equity Curve',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Drawdown (%)' },
+        hovermode: 'x unified'
+    });
+
+    // Exposure Chart
+    const exposureDates = exposureData.map(d => d.date);
+    const exposureValues = exposureData.map(d => parseFloat(d.value) * 100);
+
+    Plotly.newPlot('exposureChart', [{
+        x: exposureDates,
+        y: exposureValues,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Stock Exposure',
+        line: { color: '#198754', width: 2 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(25, 135, 84, 0.1)'
+    }], {
+        title: 'Market Exposure Over Time',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Exposure (%)', range: [0, 100] },
+        hovermode: 'x unified'
+    });
+
+    // Regime Chart (categorical)
+    const regimeDates = regimeData.map(d => d.date);
+    const regimeValues = regimeData.map(d => d.value === 'BULL' ? 3 : (d.value === 'VOLATILE' ? 2 : 1));
+    const regimeColors = regimeData.map(d => d.value === 'BULL' ? '#28a745' : (d.value === 'VOLATILE' ? '#ffc107' : '#dc3545'));
+
+    Plotly.newPlot('regimeChart', [{
+        x: regimeDates,
+        y: regimeValues,
+        type: 'scatter',
+        mode: 'markers',
+        marker: {
+            color: regimeColors,
+            size: 8,
+            line: { width: 1, color: '#fff' }
+        },
+        text: regimeData.map(d => d.value),
+        hovertemplate: '%{text}<br>%{x}<extra></extra>'
+    }], {
+        title: 'Market Regime Detection',
+        xaxis: { title: 'Date' },
+        yaxis: {
+            title: 'Regime',
+            tickvals: [1, 2, 3],
+            ticktext: ['CRASH', 'VOLATILE', 'BULL']
+        },
+        hovermode: 'closest'
+    });
+
+    // AI Explanation Button
+    document.getElementById('generateExplanationBtn').addEventListener('click', function () {
+        document.getElementById('aiLoading').style.display = 'block';
+        document.getElementById('aiExplanationContainer').style.display = 'none';
+
+        fetch('/generate_ai_explanation', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('aiLoading').style.display = 'none';
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    document.getElementById('aiExplanationText').innerText = data.explanation;
+                    document.getElementById('aiExplanationContainer').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('aiLoading').style.display = 'none';
+                alert('Error generating explanation: ' + error);
+            });
+    });
+
+    // AI Report Button
+    document.getElementById('generateReportBtn').addEventListener('click', function () {
+        document.getElementById('aiLoading').style.display = 'block';
+        document.getElementById('aiReportContainer').style.display = 'none';
+
+        fetch('/generate_ai_report', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('aiLoading').style.display = 'none';
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    // Convert markdown to HTML (simple approach)
+                    document.getElementById('aiReportText').innerHTML = data.report.replace(/\n/g, '<br>');
+                    document.getElementById('aiReportContainer').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('aiLoading').style.display = 'none';
+                alert('Error generating report: ' + error);
+            });
+    });
+</script>
+{% endblock %}
