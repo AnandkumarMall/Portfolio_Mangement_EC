@@ -106,13 +106,44 @@ def format_backtest_response(backtest_results: Dict, scenario_desc: str = None) 
     exposure_timeline = series_to_list_of_dicts(backtest_results['exposure_timeline'])
     regime_timeline = series_to_list_of_dicts(backtest_results['regime_timeline'])
     
+    # Format current holdings
+    current_weights = backtest_results.get('current_weights', pd.Series())
+    latest_prices = backtest_results.get('latest_prices', pd.Series())
+    final_portfolio_value = backtest_results.get('final_portfolio_value', 100000)
+    
+    # Create holdings list
+    holdings = []
+    for ticker in current_weights.index:
+        weight = current_weights[ticker]
+        if weight > 0.0001:  # Only include non-zero holdings
+            price = latest_prices[ticker] if ticker in latest_prices.index else 0.0
+            amount = final_portfolio_value * weight
+            shares = amount / price if price > 0 else 0
+            
+            holdings.append({
+                'ticker': ticker,
+                'weight': float(weight),
+                'amount': float(amount),
+                'price': float(price),
+                'shares': float(shares)
+            })
+    
+    # Calculate cash amount
+    total_stock_weight = current_weights.sum()
+    cash_weight = 1.0 - total_stock_weight
+    cash_amount = final_portfolio_value * cash_weight
+    
     response = {
         'metrics': metrics,
         'equity_curve': equity_curve,
         'drawdown_curve': drawdown_curve,
         'exposure_timeline': exposure_timeline,
         'regime_timeline': regime_timeline,
-        'risk_logs': backtest_results['risk_logs']
+        'risk_logs': backtest_results['risk_logs'],
+        'current_holdings': holdings,
+        'cash_amount': float(cash_amount),
+        'cash_weight': float(cash_weight),
+        'total_portfolio_value': float(final_portfolio_value)
     }
     
     if scenario_desc:

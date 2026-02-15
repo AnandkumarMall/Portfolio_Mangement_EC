@@ -186,13 +186,19 @@ def run_walkforward_backtest(
     print(f"Final Portfolio Value: ${portfolio_value:,.2f}")
     print(f"Total Return: {(portfolio_value/100000 - 1)*100:.2f}%")
     
+    # Get latest prices for current holdings
+    latest_prices = prices_bt.iloc[-1]
+    
     return {
         'equity_curve': equity_curve,
         'drawdown_curve': drawdown_curve,
         'exposure_timeline': exposure_timeline,
         'regime_timeline': regime_timeline,
         'risk_logs': risk_logs,
-        'portfolio_returns': portfolio_returns
+        'portfolio_returns': portfolio_returns,
+        'current_weights': current_weights,  # Final allocation weights
+        'latest_prices': latest_prices,  # Latest stock prices
+        'final_portfolio_value': portfolio_value  # Final portfolio value
     }
 
 
