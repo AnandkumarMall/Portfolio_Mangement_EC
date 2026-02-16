@@ -187,3 +187,94 @@ Answer based only on the data provided:""")
     
     except Exception as e:
         return "Unable to generate answer. Please check your API configuration."
+
+
+def generate_full_report(summary_dict: Dict, period_start: str = "2015", period_end: str = "2024") -> str:
+    """
+    Generate a comprehensive financial report in markdown format using Gemini.
+    
+    Args:
+        summary_dict: Summarized backtest metrics and events
+        period_start: Start year of backtest
+        period_end: End year of backtest
+        
+    Returns:
+        Markdown-formatted comprehensive report
+    """
+    try:
+        # Initialize model
+        model = get_gemini_model()
+        
+        # Create prompt template for full report
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a senior portfolio analyst preparing a comprehensive investment report.
+
+Your task is to generate a detailed, professional report in MARKDOWN format covering:
+
+1. **Executive Summary** - High-level overview (2-3 sentences)
+2. **Performance Analysis** - Detailed returns, CAGR, and growth metrics
+3. **Risk Assessment** - Volatility, drawdown, and risk-adjusted metrics
+4. **Risk Management Effectiveness** - How the system handled downturns
+5. **Strengths and Weaknesses** - Honest assessment
+6. **Conclusions and Recommendations** - Final takeaways
+
+CRITICAL RULES:
+- Use ONLY the provided data - do not invent numbers
+- Format in clean markdown with headers (##), bullet points, and tables where appropriate
+- Be professional and investor-ready
+- Use currency symbol consistently
+- Be honest about limitations
+- No speculation or hallucination
+
+Return ONLY the markdown content, no extra commentary."""),
+            ("human", """Generate a comprehensive report for this portfolio backtest:
+
+**Period:** {period_start} - {period_end}
+
+**Financial Metrics:**
+- Initial Capital: ${initial_capital:,.0f}
+- Final Value: ${final_portfolio_value:,.0f}
+- Total Return: {total_return_pct:.2f}%
+- CAGR: {cagr_pct:.2f}%
+- Sharpe Ratio: {sharpe_ratio:.3f}
+- Sortino Ratio: {sortino_ratio:.3f}
+- Calmar Ratio: {calmar_ratio:.3f}
+
+**Risk Metrics:**
+- Max Drawdown: {max_drawdown_pct:.2f}%
+- Volatility: {volatility_pct:.2f}%
+- Win Rate: {win_rate_pct:.1f}%
+
+**Risk Management Activity:**
+- Time in Cash: {time_in_cash_pct:.1f}%
+- Regime Changes: {regime_change_count}
+- Drawdown Protections: {drawdown_protection_triggers}
+- Stop-Loss Events: {stop_loss_triggers}
+- Volatility Breaches: {volatility_breach_triggers}
+- Total Risk Events: {total_risk_events}
+
+Generate a comprehensive markdown report.""")
+        ])
+        
+        # Create LCEL chain
+        chain = prompt | model | StrOutputParser()
+        
+        # Add period info to summary dict
+        input_data = summary_dict.copy()
+        input_data['period_start'] = period_start
+        input_data['period_end'] = period_end
+        
+        # Generate report
+        report = chain.invoke(input_data)
+        
+        return report.strip()
+    
+    except ValueError as e:
+        print(f"ValueError in generate_full_report: {str(e)}")
+        return f"# AI Report Unavailable\n\n{str(e)}\n\nPlease configure GEMINI_API_KEY in your .env file."
+    except Exception as e:
+        print(f"Exception in generate_full_report: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"# AI Report Unavailable\n\n{type(e).__name__}: {str(e)}"
+

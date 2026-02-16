@@ -5,6 +5,7 @@ Beautiful, professional web interface using Jinja templates and Bootstrap 5.
 
 import os
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
+from flask_session import Session
 import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -15,8 +16,15 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=5)
+
+# Configure server-side session to handle large data
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = './.flask_session/'
+app.config['SESSION_PERMANENT'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=5)
+
+# Initialize the session
+Session(app)
 
 # Backend API URL
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
@@ -271,4 +279,4 @@ if __name__ == '__main__':
     print(f"Dashboard URL: http://localhost:5000")
     print("="*60 + "\n")
     
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)

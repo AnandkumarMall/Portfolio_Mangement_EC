@@ -87,8 +87,8 @@ CRITICAL RULES:
 **Period**: {period_start} - {period_end}
 
 **Performance Metrics**:
-- Initial Capital: ₹{initial_capital:,.0f}
-- Final Value: ₹{final_portfolio_value:,.0f}
+- Initial Capital: ${initial_capital:,.0f}
+- Final Value: ${final_portfolio_value:,.0f}
 - Total Return: {total_return_pct:.2f}%
 - CAGR: {cagr_pct:.2f}%
 - Sharpe Ratio: {sharpe_ratio:.3f}
@@ -125,8 +125,8 @@ Create a professional Markdown report following the structure provided in your s
 **Adaptive Portfolio Engine - Comprehensive Analysis Report**  
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
 **Period**: {period_start} - {period_end}  
-**Market**: NIFTY 50 (Indian Equities)  
-**Currency**: INR (₹)
+**Market**: US S&P 500 (US Equities)  
+**Currency**: USD ($)
 
 ---
 
@@ -193,13 +193,13 @@ RULES:
 - CAGR: {normal_cagr:.2f}%
 - Max Drawdown: {normal_dd:.2f}%
 - Sharpe: {normal_sharpe:.3f}
-- Final Value: ₹{normal_value:,.0f}
+- Final Value: ${normal_value:,.0f}
 
 **Stressed Conditions** ({stress_type}):
 - CAGR: {stressed_cagr:.2f}%
 - Max Drawdown: {stressed_dd:.2f}%
 - Sharpe: {stressed_sharpe:.3f}
-- Final Value: ₹{stressed_value:,.0f}
+- Final Value: ${stressed_value:,.0f}
 
 Analyze the stress test results.""")
         ])

@@ -1,6 +1,6 @@
 """
-Streamlit dashboard for the Adaptive Portfolio Engine - REDESIGNED VERSION
-Professional robo-advisor UI with clear portfolio summary, risk status, and allocation breakdown.
+Streamlit dashboard for the Adaptive Portfolio Engine - INDIAN EQUITIES VERSION
+Professional robo-advisor UI with NIFTY 50 stocks, INR currency, and detailed holdings breakdown.
 """
 
 import streamlit as st
@@ -17,10 +17,11 @@ load_dotenv()
 
 # Configuration
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+CURRENCY_SYMBOL = "₹"
 
 # Page config
 st.set_page_config(
-    page_title="Adaptive Portfolio Engine",
+    page_title="Adaptive Portfolio Engine - India",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -32,7 +33,7 @@ st.markdown("""
     .main-header {
         font-size: 2.8rem;
         font-weight: 800;
-        background: linear-gradient(120deg, #1f77b4, #2ca02c);
+        background: linear-gradient(120deg, #FF9933, #138808);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.5rem;
@@ -42,19 +43,11 @@ st.markdown("""
         color: #666;
         margin-bottom: 2rem;
     }
-    .big-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 1rem;
-        color: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 2rem;
-    }
     .status-card {
         background: #f8f9fa;
         padding: 1.5rem;
         border-radius: 0.75rem;
-        border-left: 4px solid #1f77b4;
+        border-left: 4px solid #138808;
         margin-bottom: 1.5rem;
     }
     .metric-card {
@@ -64,17 +57,6 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         text-align: center;
         border: 1px solid #e0e0e0;
-    }
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        margin: 0.5rem 0;
-    }
-    .metric-label {
-        font-size: 0.9rem;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     .positive {
         color: #2ca02c;
@@ -114,12 +96,8 @@ st.markdown("""
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 0.75rem;
-        border-left: 3px solid #1f77b4;
+        border-left: 3px solid #138808;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .event-date {
-        font-weight: 600;
-        color: #1f77b4;
     }
     .divider {
         margin: 2rem 0;
@@ -189,6 +167,44 @@ def compare_risk_engine_api(start_year, end_year):
         st.error(f"Error calling backend: {str(e)}")
         return None
 
+def generate_ai_explanation_api(backtest_summary):
+    """Call backend AI to generate explanation."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/generate_explanation",
+            json={"backtest_summary": backtest_summary},
+            timeout=60
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 503:
+            return {"error": "AI service unavailable. Please configure GEMINI_API_KEY in backend .env file."}
+        return {"error": f"AI service error: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Error calling AI service: {str(e)}"}
+
+def generate_ai_report_api(backtest_summary, period_start, period_end):
+    """Call backend AI to generate full report."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/generate_full_report",
+            json={
+                "backtest_summary": backtest_summary,
+                "period_start": period_start,
+                "period_end": period_end
+            },
+            timeout=120
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 503:
+            return {"error": "AI service unavailable. Please configure GEMINI_API_KEY in backend .env file."}
+        return {"error": f"AI service error: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Error calling AI service: {str(e)}"}
+
 def parse_timeseries(data):
     """Parse timeseries data from API response."""
     dates = [item['date'] for item in data]
@@ -196,8 +212,8 @@ def parse_timeseries(data):
     return pd.Series(values, index=pd.to_datetime(dates))
 
 def format_currency(value):
-    """Format value as currency."""
-    return f"${value:,.2f}"
+    """Format value as INR currency."""
+    return f"{CURRENCY_SYMBOL}{value:,.2f}"
 
 def format_percentage(value):
     """Format value as percentage."""
@@ -219,14 +235,12 @@ def humanize_event(event):
     details = event.get('details', '')
     date = event.get('date', '')
     
-    # Format date
     try:
         dt = pd.to_datetime(date)
         date_str = dt.strftime('%b %Y')
     except:
         date_str = date
     
-    # Choose emoji and rewrite details
     if 'REGIME_CHANGE' in event_type:
         emoji = '🔄'
         from_regime = event.get('from_regime', '')
@@ -269,7 +283,6 @@ def plot_equity_curve_with_regime(equity_data, regime_data):
     
     fig = go.Figure()
     
-    # Regime colors
     regime_colors = {
         'BULL': 'rgba(76, 175, 80, 0.15)',
         'VOLATILE': 'rgba(255, 193, 7, 0.15)',
@@ -293,7 +306,6 @@ def plot_equity_curve_with_regime(equity_data, regime_data):
             current_regime = regime
             start_idx = i
     
-    # Add last regime
     if current_regime is not None:
         fig.add_vrect(
             x0=regime_series.index[start_idx],
@@ -303,20 +315,19 @@ def plot_equity_curve_with_regime(equity_data, regime_data):
             line_width=0,
         )
     
-    # Add equity curve
     fig.add_trace(go.Scatter(
         x=equity_series.index,
         y=equity_series.values,
         mode='lines',
         name='Portfolio Value',
-        line=dict(color='#1f77b4', width=3),
-        hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Value: $%{y:,.2f}<extra></extra>'
+        line=dict(color='#FF9933', width=3),
+        hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Value: ' + CURRENCY_SYMBOL + '%{y:,.2f}<extra></extra>'
     ))
     
     fig.update_layout(
         title="Portfolio Equity Curve",
         xaxis_title="Date",
-        yaxis_title="Portfolio Value ($)",
+        yaxis_title=f"Portfolio Value ({CURRENCY_SYMBOL})",
         hovermode='x unified',
         template='plotly_white',
         height=450,
@@ -342,7 +353,7 @@ def plot_drawdown(drawdown_data):
     ))
     
     fig.update_layout(
-        title="Portfolio Drawdown",
+        title="Portfolio Draw down",
         xaxis_title="Date",
         yaxis_title="Drawdown (%)",
         hovermode='x unified',
@@ -358,7 +369,6 @@ def plot_exposure(exposure_data):
     
     fig = go.Figure()
     
-    # Stock exposure
     fig.add_trace(go.Scatter(
         x=exposure_series.index,
         y=exposure_series.values * 100,
@@ -370,7 +380,6 @@ def plot_exposure(exposure_data):
         stackgroup='one'
     ))
     
-    # Cash
     fig.add_trace(go.Scatter(
         x=exposure_series.index,
         y=(1 - exposure_series.values) * 100,
@@ -401,7 +410,6 @@ def plot_regime_timeline(regime_data):
         index=pd.to_datetime([item['date'] for item in regime_data])
     )
     
-    # Convert to numeric for plotting
     regime_map = {'BULL': 3, 'VOLATILE': 2, 'CRASH': 1}
     regime_numeric = regime_series.map(regime_map)
     
@@ -433,13 +441,25 @@ def plot_regime_timeline(regime_data):
     
     return fig
 
-def plot_allocation_pie(weights_dict):
-    """Plot current allocation as pie chart."""
-    if not weights_dict:
+def plot_allocation_pie(holdings, cash_weight, show_only_active=False):
+    """Plot current allocation as pie chart with individual stocks."""
+    allocation_data = []
+    
+    # Add individual stocks
+    for holding in holdings:
+        weight = holding['weight']
+        ticker = holding['ticker'].replace('.NS', '')  # Clean ticker name
+        if not show_only_active or weight > 0.001:
+            allocation_data.append({'Asset': ticker, 'Weight': weight})
+    
+    # Add cash
+    if cash_weight > 0.001 or not show_only_active:
+        allocation_data.append({'Asset': 'Cash', 'Weight': cash_weight})
+    
+    if not allocation_data:
         return None
     
-    df = pd.DataFrame(list(weights_dict.items()), columns=['Asset', 'Weight'])
-    df = df[df['Weight'] > 0.001]  # Filter out tiny weights
+    df = pd.DataFrame(allocation_data)
     
     fig = px.pie(
         df,
@@ -451,7 +471,7 @@ def plot_allocation_pie(weights_dict):
     )
     
     fig.update_traces(textposition='inside', textinfo='percent+label')
-    fig.update_layout(height=400)
+    fig.update_layout(height=500)
     
     return fig
 
@@ -459,8 +479,8 @@ def plot_allocation_pie(weights_dict):
 
 def main():
     # Header
-    st.markdown('<div class="main-header">📈 Adaptive Portfolio Engine</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Professional Risk-Managed Portfolio Allocation System</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">📈 Adaptive Portfolio Engine - India</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">NIFTY 50 Portfolio with Professional Risk Management</div>', unsafe_allow_html=True)
     
     # Check backend health
     if not check_backend_health():
@@ -478,6 +498,10 @@ def main():
         start_year = st.number_input("Start Year", min_value=2010, max_value=2023, value=2015, step=1)
     with col2:
         end_year = st.number_input("End Year", min_value=2011, max_value=2024, value=2024, step=1)
+    
+    # Store in session state for AI report
+    st.session_state['start_year'] = start_year
+    st.session_state['end_year'] = end_year
     
     if end_year <= start_year:
         st.sidebar.error("End year must be after start year!")
@@ -553,14 +577,19 @@ def display_results(results, is_stress=False):
     
     # Parse data
     equity_series = parse_timeseries(equity_data)
-    initial_capital = 100000  # As per backend
+    initial_capital = 100000
     current_value = equity_series.iloc[-1]
     peak_value = equity_series.max()
     total_profit = current_value - initial_capital
     total_return = total_profit / initial_capital
     current_dd = metrics['Max Drawdown']
     
-    # Get current status from last data points
+    # Get holdings data
+    holdings = results.get('current_holdings', [])
+    cash_amount = results.get('cash_amount', 0)
+    cash_weight = results.get('cash_weight', 0)
+    
+    # Get current status
     exposure_series = parse_timeseries(results['exposure_timeline'])
     regime_series = pd.Series(
         [item['value'] for item in results['regime_timeline']],
@@ -577,40 +606,19 @@ def display_results(results, is_stress=False):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Initial Capital</div>
-            <div class="metric-value neutral">{format_currency(initial_capital)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric("Initial Capital", format_currency(initial_capital))
     
     with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Current Value</div>
-            <div class="metric-value" style="font-size: 2.5rem; color: #1f77b4;">{format_currency(current_value)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric("Current Value", format_currency(current_value), 
+                 delta=format_currency(total_profit), delta_color="normal")
     
     with col3:
-        profit_class = "positive" if total_profit >= 0 else "negative"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Total Profit</div>
-            <div class="metric-value {profit_class}">{format_currency(total_profit)}</div>
-            <div class="{profit_class}">{format_percentage(total_return)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric("Total Return", format_percentage(total_return),
+                 delta=None)
     
     with col4:
-        dd_class = "negative" if current_dd < -0.05 else "neutral"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Peak Value</div>
-            <div class="metric-value neutral">{format_currency(peak_value)}</div>
-            <div class="{dd_class}">Drawdown: {format_percentage(current_dd)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric("Peak Value", format_currency(peak_value),
+                 delta=f"DD: {format_percentage(current_dd)}", delta_color="inverse")
     
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
@@ -642,13 +650,12 @@ def display_results(results, is_stress=False):
     
     with col3:
         vol_class = "negative" if metrics['Volatility'] > 0.25 else "positive"
-        risk_status = "✅ ENABLED" if st.session_state.get('results', {}) else "❌ DISABLED"
         
         st.markdown(f"""
         <div class="status-card">
             <h4>Risk Controls</h4>
             <div style="margin-top: 1rem;">
-                <div style="font-size: 1.2rem; font-weight: 600;">Status: {risk_status}</div>
+                <div style="font-size: 1.2rem; font-weight: 600;">Status: ✅ ENABLED</div>
                 <div class="{vol_class}">Volatility: {format_percentage(metrics['Volatility'])}</div>
             </div>
         </div>
@@ -683,30 +690,52 @@ def display_results(results, is_stress=False):
     
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # ========== SECTION 4: Allocation Breakdown ==========
-    st.markdown("## 📑 Current Allocation Breakdown")
+    # ========== SECTION 4: Current Holdings ==========
+    st.markdown("## 📊 Current Holdings")
     
-    # For now, show exposure breakdown (stocks vs cash)
-    # In a real scenario, you'd get individual stock weights from the last rebalance
-    allocation_data = {
-        'Stocks': current_exposure,
-        'Cash': current_cash
-    }
+    # Toggle for active holdings only
+    show_only_active = st.checkbox("Show only active holdings (Weight > 0.1%)", value=True)
     
-    col1, col2 = st.columns([1, 1])
+    col1, col2 = st.columns([2, 3])
     
     with col1:
-        if allocation_data:
-            fig_pie = plot_allocation_pie(allocation_data)
-            if fig_pie:
-                st.plotly_chart(fig_pie, use_container_width=True)
+        # Pie chart
+        fig_pie = plot_allocation_pie(holdings, cash_weight, show_only_active)
+        if fig_pie:
+            st.plotly_chart(fig_pie, use_container_width=True)
     
     with col2:
-        allocation_df = pd.DataFrame([
-            {'Asset': 'Stock Portfolio', 'Weight (%)': f"{current_exposure*100:.2f}%", 'Dollar Value': format_currency(current_value * current_exposure)},
-            {'Asset': 'Cash', 'Weight (%)': f"{current_cash*100:.2f}%", 'Dollar Value': format_currency(current_value * current_cash)}
-        ])
-        st.dataframe(allocation_df, use_container_width=True, hide_index=True)
+        # Holdings table
+        if holdings:
+            holdings_data = []
+            for h in holdings:
+                weight = h['weight']
+                if show_only_active and weight < 0.001:
+                    continue
+                    
+                holdings_data.append({
+                    'Stock': h['ticker'].replace('.NS', ''),
+                    'Weight (%)': f"{weight*100:.2f}%",
+                    'Amount (' + CURRENCY_SYMBOL + ')': format_currency(h['amount']),
+                    'Price (' + CURRENCY_SYMBOL + ')': f"{h['price']:.2f}",
+                    'Shares': f"{h['shares']:.0f}"
+                })
+            
+            # Add cash row
+            if not show_only_active or cash_weight > 0.001:
+                holdings_data.append({
+                    'Stock': 'CASH',
+                    'Weight (%)': f"{cash_weight*100:.2f}%",
+                    'Amount (' + CURRENCY_SYMBOL + ')': format_currency(cash_amount),
+                    'Price (' + CURRENCY_SYMBOL + ')': '-',
+                    'Shares': '-'
+                })
+            
+            if holdings_data:
+                holdings_df = pd.DataFrame(holdings_data)
+                st.dataframe(holdings_df, use_container_width=True, hide_index=True, height=400)
+        else:
+            st.info("No holdings data available. Run a backtest to see current allocation.")
     
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
@@ -740,17 +769,103 @@ def display_results(results, is_stress=False):
         st.info(f"📌 Total Events: {len(results['risk_logs'])}")
         
         # Humanize and display
-        for event in reversed(results['risk_logs'][-20:]):  # Show last 20 events
+        for event in reversed(results['risk_logs'][-20:]):
             emoji, date_str, message = humanize_event(event)
             
             st.markdown(f"""
             <div class="event-timeline">
-                <div class="event-date">{emoji} {date_str}</div>
+                <div style="font-weight: 600; color: #138808;">{emoji} {date_str}</div>
                 <div style="margin-top: 0.5rem; color: #333;">{message}</div>
             </div>
             """, unsafe_allow_html=True)
     else:
         st.info("ℹ️ No risk events triggered during this period. Portfolio operated within normal parameters.")
+    
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    
+    # ========== SECTION 7: AI Explanation & Report ==========
+    st.markdown("## 🧠 AI-Powered Analysis")
+    
+    # Create summary dict for AI
+    summary_dict = {
+        'initial_capital': 100000,
+        'final_portfolio_value': current_value,
+        'total_return_pct': total_return * 100,
+        'cagr_pct': metrics.get('CAGR', 0) * 100,
+        'sharpe_ratio': metrics.get('Sharpe Ratio', 0),
+        'sortino_ratio': metrics.get('Sortino Ratio', 0),
+        'max_drawdown_pct': abs(metrics.get('Max Drawdown', 0) * 100),
+        'volatility_pct': metrics.get('Volatility', 0) * 100,
+        'calmar_ratio': metrics.get('Calmar Ratio', 0),
+        'time_in_cash_pct': metrics.get('Time in Cash (%)', 0),
+        'win_rate_pct': metrics.get('Win Rate (%)', 0),
+        'regime_change_count': sum(1 for log in results['risk_logs'] if 'REGIME_CHANGE' in log.get('event_type', '')),
+        'drawdown_protection_triggers': sum(1 for log in results['risk_logs'] if 'DRAWDOWN' in log.get('event_type', '')),
+        'stop_loss_triggers': sum(1 for log in results['risk_logs'] if 'STOP_LOSS' in log.get('event_type', '')),
+        'volatility_breach_triggers': sum(1 for log in results['risk_logs'] if 'VOL_BREACH' in log.get('event_type', '')),
+        'total_risk_events': len(results['risk_logs'])
+    }
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🤖 Generate AI Explanation", use_container_width=True, type="primary"):
+            with st.spinner("🤖 Generating AI explanation..."):
+                ai_result = generate_ai_explanation_api(summary_dict)
+                if 'error' in ai_result:
+                    st.error(ai_result['error'])
+                else:
+                    st.session_state['ai_explanation'] = ai_result['explanation']
+                    st.success("✅ AI explanation generated!")
+    
+    with col2:
+        if st.button("📄 Generate Full AI Report", use_container_width=True):
+            with st.spinner("📄 Generating comprehensive AI report... This may take a moment."):
+                ai_result = generate_ai_report_api(
+                    summary_dict,
+                    period_start=str(st.session_state.get('start_year', 2015)),
+                    period_end=str(st.session_state.get('end_year', 2024))
+                )
+                if 'error' in ai_result:
+                    st.error(ai_result['error'])
+                else:
+                    st.session_state['ai_report'] = ai_result['report']
+                    st.success("✅ AI report generated!")
+    
+    # Display AI Explanation
+    if 'ai_explanation' in st.session_state:
+        st.markdown("### 💡 AI Explanation")
+        st.markdown(st.session_state['ai_explanation'])
+        
+        # Download button
+        st.download_button(
+            label="📥 Download Explanation (.txt)",
+            data=st.session_state['ai_explanation'],
+            file_name=f"ai_explanation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain"
+        )
+    
+    # Display AI Report
+    if 'ai_report' in st.session_state:
+        with st.expander("📄 Full AI Report (Click to expand)", expanded=False):
+            st.markdown(st.session_state['ai_report'])
+            
+            # Download buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button(
+                    label="📥 Download Report (.md)",
+                    data=st.session_state['ai_report'],
+                    file_name=f"portfolio_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    mime="text/markdown"
+                )
+            with col2:
+                st.download_button(
+                    label="📥 Download Report (.txt)",
+                    data=st.session_state['ai_report'],
+                    file_name=f"portfolio_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
 
 def display_comparison(comparison):
     """Display scenario comparison."""

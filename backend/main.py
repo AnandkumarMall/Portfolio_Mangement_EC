@@ -17,6 +17,7 @@ from backtester import run_simple_backtest
 from stress_testing import apply_stress_scenario, get_scenario_description
 from metrics import compute_all_metrics
 from explainability import logs_to_dataframe
+from ai_explainer import generate_explanation, generate_full_report
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -64,6 +65,16 @@ class BacktestResponse(BaseModel):
     regime_timeline: List[Dict[str, str]]
     risk_logs: List[Dict]
     scenario_description: Optional[str] = None
+
+
+class AIExplanationRequest(BaseModel):
+    backtest_summary: Dict
+
+
+class AIReportRequest(BaseModel):
+    backtest_summary: Dict
+    period_start: str = "2015"
+    period_end: str = "2024"
 
 
 # ============= Helper Functions =============
@@ -344,6 +355,82 @@ async def compare_risk_engine(
     
     except Exception as e:
         print(f"Error in compare_risk_engine: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_explanation")
+async def generate_ai_explanation(request: AIExplanationRequest):
+    """
+    Generate AI-powered explanation of backtest results using Gemini.
+    
+    Returns:
+        Natural language explanation of performance and risk management
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"API Request: Generate AI Explanation")
+        print(f"{'='*60}\n")
+        
+        summary_dict = request.backtest_summary
+        
+        # Generate explanation using Gemini
+        explanation = generate_explanation(summary_dict)
+        
+        return {
+            "explanation": explanation,
+            "generated_at": str(datetime.now()),
+            "status": "success"
+        }
+    
+    except ValueError as e:
+        # API key not configured
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI service unavailable: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Error in generate_explanation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_full_report")
+async def generate_ai_report(request: AIReportRequest):
+    """
+    Generate comprehensive financial report using Gemini.
+    
+    Returns:
+        Markdown-formatted structured report
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"API Request: Generate Full AI Report")
+        print(f"Period: {request.period_start} - {request.period_end}")
+        print(f"{'='*60}\n")
+        
+        summary_dict = request.backtest_summary
+        
+        # Generate full report using Gemini
+        report = generate_full_report(
+            summary_dict,
+            period_start=request.period_start,
+            period_end=request.period_end
+        )
+        
+        return {
+            "report": report,
+            "format": "markdown",
+            "generated_at": str(datetime.now()),
+            "status": "success"
+        }
+    
+    except ValueError as e:
+        # API key not configured
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI service unavailable: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Error in generate_full_report: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
