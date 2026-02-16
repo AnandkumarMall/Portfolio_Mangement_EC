@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario Comparison - Adaptive Portfolio Engine{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold text-primary">
+            <i class="bi bi-bar-chart"></i> Scenario Comparison Results
+        </h1>
+        <p class="lead text-muted">
+            Period: {{ start_year }} - {{ end_year }} | Stress Type: {{ data.summary.stress_type }}
+        </p>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
+    </div>
+
+    <!-- Summary Alert -->
+    <div class="alert alert-info mb-4" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-lightbulb"></i> Key Finding</h5>
+        <p class="mb-0">{{ data.summary.conclusion }}</p>
+    </div>
+
+    <!-- Quick Metrics Cards -->
+    <div class="row mb-4">
+        {% set scenarios = [
+        ('Normal (No Risk Engine)', 'primary', 'graph-up'),
+        ('Normal (With Risk Engine)', 'success', 'shield-check'),
+        ('Stressed (No Risk Engine)', 'warning', 'exclamation-triangle'),
+        ('Stressed (With Risk Engine)', 'info', 'shield-fill')
+        ] %}
+
+        {% for scenario_name, color, icon in scenarios %}
+        <div class="col-md-3 mb-3">
+            <div class="card border-{{ color }} h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-{{ icon }} text-{{ color }}" style="font-size: 2rem;"></i>
+                    <h6 class="card-title mt-2 mb-3">
+                        {{ scenario_name.split('(')[0] }}<br>
+                        <small class="text-muted">{{ scenario_name.split('(')[1].replace(')', '') }}</small>
+                    </h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">CAGR</small>
+                            <p class="fw-bold mb-1">{{ "{:.2f}".format(data.comparison[scenario_name]['CAGR'] * 100) }}%
+                            </p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Sharpe</small>
+                            <p class="fw-bold mb-1">{{ "{:.2f}".format(data.comparison[scenario_name]['Sharpe Ratio'])
+                                }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <small class="text-muted">Max DD</small>
+                            <p class="fw-bold text-danger mb-0">{{ "{:.2f}".format(data.comparison[scenario_name]['Max Drawdown'] * 100) }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Charts Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Visual Comparison Charts</h4>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" id="comparisonChartTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="bar-tab" data-bs-toggle="tab" data-bs-target="#barChart"
+                        type="button">
+                        <i class="bi bi-bar-chart"></i> Bar Comparison
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="radar-tab" data-bs-toggle="tab" data-bs-target="#radarChart"
+                        type="button">
+                        <i class="bi bi-pentagon"></i> Radar Chart
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3" id="comparisonChartTabsContent">
+                <div class="tab-pane fade show active" id="barChart" role="tabpanel">
+                    <div id="metricsBarChart" style="height: 500px;"></div>
+                </div>
+                <div class="tab-pane fade" id="radarChart" role="tabpanel">
+                    <div id="metricsRadarChart" style="height: 500px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Comparison Table -->
+    <div class="card shadow-lg border-0 mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0"><i class="bi bi-table"></i> Detailed Metrics Comparison</h4>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="fw-bold">Metric</th>
+                            <th class="text-center fw-bold">Normal<br><small class="text-muted">(No Risk)</small></th>
+                            <th class="text-center fw-bold">Normal<br><small class="text-muted">(With Risk)</small></th>
+                            <th class="text-center fw-bold">Stressed<br><small class="text-muted">(No Risk)</small></th>
+                            <th class="text-center fw-bold">Stressed<br><small class="text-muted">(With Risk)</small>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set scenarios_list = ['Normal (No Risk Engine)', 'Normal (With Risk Engine)', 'Stressed (No Risk Engine)', 'Stressed (With Risk Engine)'] %}
+                        {% set metrics_to_show = [('Total Return', True, '%'), ('CAGR', True, '%'), ('Sharpe Ratio',
+                        False, ''), ('Sortino Ratio', False, ''), ('Volatility', True, '%'), ('Max Drawdown', True,
+                        '%'), ('Calmar Ratio', False, ''), ('Time in Cash (%)', False, '%'), ('Win Rate (%)', False,
+                        '%')] %}
+
+                        {% for metric_name, is_decimal, suffix in metrics_to_show %}
+                        <tr>
+                            <td class="fw-semibold">{{ metric_name }}</td>
+                            {% for scenario in scenarios_list %}
+                            {% set value = data.comparison[scenario][metric_name] %}
+                            <td class="text-center">
+                                {% if is_decimal %}
+                                {% if suffix == '%' %}
+                                <span
+                                    class="{% if value > 0 and 'Drawdown' not in metric_name %}text-success{% elif value < 0 %}text-danger{% endif %}">
+                                    {{ (value * 100)|round(2) }}{{ suffix }}
+                                </span>
+                                {% else %}
+                                {{ (value * 100)|round(2) }}{{ suffix }}
+                                {% endif %}
+                                {% else %}
+                                {% if 'Cash' in metric_name or 'Win Rate' in metric_name %}
+                                {{ value|round(2) }}{{ suffix }}
+                                {% else %}
+                                {{ value|round(3) }}
+                                {% endif %}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Insights -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100 border-success">
+                <div class="card-body">
+                    <h5 class="card-title text-success"><i class="bi bi-check-circle"></i> Risk Engine Benefits</h5>
+                    <ul class="mb-0">
+                        <li>Improved Sharpe ratio (risk-adjusted returns)</li>
+                        <li>Controlled maximum drawdown</li>
+                        <li>More consistent performance under stress</li>
+                        <li>Better downside protection</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 border-warning">
+                <div class="card-body">
+                    <h5 class="card-title text-warning"><i class="bi bi-exclamation-triangle"></i> Trade-offs</h5>
+                    <ul class="mb-0">
+                        <li>Potentially lower returns in strong bull markets</li>
+                        <li>More time in cash during volatile periods</li>
+                        <li>Higher transaction costs from rebalancing</li>
+                        <li>May underperform in trending markets</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-robot"></i> AI-Powered Analysis</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">Get AI-powered insights explaining the comparison results and recommendations</p>
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <button class="btn btn-primary btn-lg w-100" id="generateComparisonReportBtn">
+                        <i class="bi bi-stars"></i> Generate AI Comparison Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI Report Display -->
+            <div id="aiReportContainer" style="display: none;" class="mt-4">
+                <h6 class="fw-bold"><i class="bi bi-file-text"></i> AI Comparison Analysis:</h6>
+                <div id="aiReportText" class="p-4 bg-white rounded border" style="max-height: 700px; overflow-y: auto;">
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="aiLoading" style="display: none;" class="text-center mt-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Generating AI analysis... This may take up to a minute.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const comparisonData = {{ data.comparison | tojson }};
+    const scenarioNames = ['Normal (No Risk Engine)', 'Normal (With Risk Engine)', 'Stressed (No Risk Engine)', 'Stressed (With Risk Engine)'];
+    const shortNames = ['Normal No Risk', 'Normal With Risk', 'Stressed No Risk', 'Stressed With Risk'];
+    const colors = ['#0d6efd', '#198754', '#ffc107', '#17a2b8'];
+
+    const metricsForChart = ['CAGR', 'Sharpe Ratio', 'Max Drawdown', 'Volatility', 'Calmar Ratio'];
+
+    const barTraces = metricsForChart.map(metric => {
+        return {
+            type: 'bar',
+            name: metric,
+            x: shortNames,
+            y: scenarioNames.map(s => {
+                const val = comparisonData[s][metric];
+                if (['CAGR', 'Max Drawdown', 'Volatility'].includes(metric)) {
+                    return val * 100;
+                }
+                return val;
+            }),
+            text: scenarioNames.map(s => {
+                const val = comparisonData[s][metric];
+                if (['CAGR', 'Max Drawdown', 'Volatility'].includes(metric)) {
+                    return (val * 100).toFixed(2) + '%';
+                }
+                return val.toFixed(3);
+            }),
+            textposition: 'auto',
+            hovertemplate: '<b>%{x}</b><br>' + metric + ': %{text}<extra></extra>'
+        };
+    });
+
+    Plotly.newPlot('metricsBarChart', barTraces, {
+        title: 'Key Metrics Comparison Across All Scenarios',
+        barmode: 'group',
+        xaxis: { title: 'Scenario' },
+        yaxis: { title: 'Value' },
+        height: 500,
+        showlegend: true,
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.15 }
+    });
+
+    const radarMetrics = ['CAGR', 'Sharpe Ratio', 'Sortino Ratio', 'Calmar Ratio'];
+    const radarTraces = scenarioNames.map((scenario, idx) => {
+        const values = radarMetrics.map(metric => comparisonData[scenario][metric]);
+        const normalizedValues = values.map((v, i) => {
+            if (radarMetrics[i] === 'CAGR') {
+                return Math.max(0, (v * 100 + 20) * 2);
+            } else {
+                return Math.max(0, v * 20);
+            }
+        });
+
+        return {
+            type: 'scatterpolar',
+            r: normalizedValues,
+            theta: radarMetrics,
+            fill: 'toself',
+            name: shortNames[idx],
+            marker: { color: colors[idx] },
+            line: { color: colors[idx] }
+        };
+    });
+
+    Plotly.newPlot('metricsRadarChart', radarTraces, {
+        polar: { radialaxis: { visible: true, range: [0, 100] } },
+        showlegend: true,
+        title: 'Multi-Metric Performance Radar',
+        height: 500,
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.1 }
+    });
+
+    document.getElementById('generateComparisonReportBtn').addEventListener('click', function () {
+        document.getElementById('aiLoading').style.display = 'block';
+        document.getElementById('aiReportContainer').style.display = 'none';
+
+        let detailedText = `Portfolio Comparison Analysis ({{ start_year }}-{{ end_year }})\n\n`;
+        detailedText += `Stress Type: {{ data.summary.stress_type }}\n\n`;
+        detailedText += `Conclusion: {{ data.summary.conclusion }}\n\n`;
+        detailedText += `Detailed Metrics:\n\n`;
+
+        scenarioNames.forEach(scenario => {
+            detailedText += `${scenario}:\n`;
+            Object.entries(comparisonData[scenario]).forEach(([key, value]) => {
+                if (['CAGR', 'Volatility', 'Max Drawdown'].includes(key)) {
+                    detailedText += `  - ${key}: ${(value * 100).toFixed(2)}%\n`;
+                } else if (['Time in Cash (%)', 'Win Rate (%)'].includes(key)) {
+                    detailedText += `  - ${key}: ${value.toFixed(2)}%\n`;
+                } else {
+                    detailedText += `  - ${key}: ${value.toFixed(3)}\n`;
+                }
+            });
+            detailedText += `\n`;
+        });
+
+        const baseMetrics = comparisonData[scenarioNames[0]];
+        const aiSummary = {
+            comparison_context: detailedText,
+            scenario_count: 4,
+            period: '{{ start_year }}-{{ end_year }}',
+            stress_type: '{{ data.summary.stress_type }}',
+            ...baseMetrics,
+            initial_capital: 100000,
+            final_portfolio_value: 100000 * (1 + baseMetrics['Total Return']),
+            total_return_pct: baseMetrics['Total Return'] * 100,
+            cagr_pct: baseMetrics['CAGR'] * 100,
+            sharpe_ratio: baseMetrics['Sharpe Ratio'],
+            max_drawdown_pct: Math.abs(baseMetrics['Max Drawdown'] * 100),
+            volatility_pct: baseMetrics['Volatility'] * 100
+        };
+
+        fetch('/generate_ai_report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aiSummary)
+        })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('aiLoading').style.display = 'none';
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    const reportHtml = data.report_html || data.report.replace(/\n/g, '<br>');
+                    const comparisonPrefix = `<div class="alert alert-primary"><h5><i class="bi bi-info-circle"></i> Comparative Analysis Report</h5><p>This AI-generated report provides insights across all 4 scenarios tested.</p></div>`;
+                    document.getElementById('aiReportText').innerHTML = comparisonPrefix + reportHtml;
+                    document.getElementById('aiReportContainer').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('aiLoading').style.display = 'none';
+                alert('Error generating report: ' + error);
+            });
+    });
+</script>
+{% endblock %}

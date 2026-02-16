@@ -107,6 +107,10 @@ def run_stress_test():
     with_risk_engine = request.form.get('with_risk_engine') == 'on'
     stress_type = request.form.get('stress_type', 'market_shock')
     
+    # If stress_type is empty string, default to market_shock
+    if not stress_type or stress_type == '':
+        stress_type = 'market_shock'
+    
     # Call backend
     result = call_backend_api(
         '/run_stress_test',
@@ -218,6 +222,13 @@ def generate_ai_report():
         }
     )
     
+    # Convert markdown to HTML if report exists
+    if 'report' in ai_result:
+        ai_result['report_html'] = markdown.markdown(
+            ai_result['report'],
+            extensions=['tables', 'fenced_code', 'nl2br']
+        )
+    
     return jsonify(ai_result)
 
 
@@ -247,6 +258,37 @@ def download_report(format_type):
         as_attachment=True,
         download_name=filename
     )
+
+
+@app.route('/compare_scenarios', methods=['POST'])
+def compare_scenarios():
+    """Compare all 4 scenarios (normal/stressed × with/without risk)."""
+    try:
+        # Get parameters from form or session
+        start_year = int(request.form.get('start_year', session.get('start_year', 2015)))
+        end_year = int(request.form.get('end_year', session.get('end_year', 2024)))
+        
+        # Call backend API
+        response = call_backend_api(
+            f'/compare_risk_engine?start_year={start_year}&end_year={end_year}',
+            method='GET'
+        )
+        
+        if 'error' in response:
+            return render_template('error.html', error=response['error'])
+        
+        if response and 'comparison' in response:
+            # Store in session
+            session.permanent = True
+            session['comparison_results'] = response
+            session['start_year'] = start_year
+            session['end_year'] = end_year
+            return render_template('comparison.html', data=response, start_year=start_year, end_year=end_year)
+        else:
+            return render_template('error.html', error="Failed to retrieve comparison results")
+    
+    except Exception as e:
+        return render_template('error.html', error=str(e))
 
 
 # ============= Template Filters =============

@@ -73,17 +73,31 @@
 
                     <!-- Action Buttons -->
                     <div class="row">
-                        <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="col-md-6 mb-3">
                             <button type="submit" formaction="{{ url_for('run_backtest') }}"
                                 class="btn btn-primary btn-lg w-100" id="backtestBtn">
                                 <i class="bi bi-play-circle"></i> Run Backtest
                             </button>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 mb-3">
                             <button type="submit" formaction="{{ url_for('run_stress_test') }}"
                                 class="btn btn-warning btn-lg w-100" id="stressTestBtn">
                                 <i class="bi bi-lightning"></i> Run Stress Test
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Compare All Scenarios Button -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <button type="submit" formaction="{{ url_for('compare_scenarios') }}"
+                                class="btn btn-info btn-lg w-100" id="compareBtn">
+                                <i class="bi bi-bar-chart"></i> Compare All Scenarios
+                            </button>
+                            <small class="text-muted d-block mt-2 text-center">
+                                <i class="bi bi-info-circle"></i> Runs 4 backtests: Normal/Stressed × With/Without Risk
+                                Engine (takes several minutes)
+                            </small>
                         </div>
                     </div>
                 </form>
